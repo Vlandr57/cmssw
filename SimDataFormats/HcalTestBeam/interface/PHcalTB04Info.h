@@ -107,7 +107,7 @@ public:
 
   //Vertex associated methods
   void setVtxPrim(int evNum, int type, double x, double y, double z, double u,
-		  double v, double w, double px, double py, double pz); 
+		   double v, double w, double px, double py, double pz); 
   void setVtxSec(int id, int pdg, double px, double py, double pz, double ek); 
 
 private:

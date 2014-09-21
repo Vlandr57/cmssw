@@ -44,12 +44,17 @@ public:
   };
 
   struct Hit {
-    Hit(): id(0), eta(0), phi(0), e(0), t(0) {}
+    Hit(): id(0), eta(0), phi(0), e(0), t(0), x(0), y(0), z(0), lay(0) {}
     unsigned int id;
+//    uint32_t id;
     float    eta;
     float    phi;
     float    e;
     float    t;
+    float    x;
+    float    y;
+    float    z;
+    unsigned int lay;
   };
 
   typedef std::vector<float>  FloatVector;
@@ -70,13 +75,20 @@ public:
   HitVector    simHits()                    const {return hits;}
   Hit          simHit(unsigned int i)       const {return hits[i];}
   unsigned int simHitID(unsigned int i)     const {return hits[i].id;}
+//  uint32_t     simHitID(unsigned int i)     const {return hits[i].id;}
   float        simHitEta(unsigned int i)    const {return hits[i].eta;}
   float        simHitPhi(unsigned int i)    const {return hits[i].phi;}
   float        simHitE(unsigned int i)      const {return hits[i].e;}
   float        simHitT(unsigned int i)      const {return hits[i].t;}
+  float        simHitX(unsigned int i)      const {return hits[i].x;}
+  float        simHitY(unsigned int i)      const {return hits[i].y;}
+  float        simHitZ(unsigned int i)      const {return hits[i].z;}
+  unsigned int simHitLay(unsigned int i)    const {return hits[i].lay;}
 
-  int          evNum()                      const {return v1EvNum;}
-  int          vtxType()                    const {return v1Type;}
+//  int          evNum()                      const {return v1EvNum;}
+//  int          vtxType()                    const {return v1Type;}
+  float        vtxEpi0f()                   const {return v1fEpi0;}
+  float        vtxEpi0t()                   const {return v1tEpi0;}
   float        vtxPrimX()                   const {return v1X;}
   float        vtxPrimY()                   const {return v1Y;}
   float        vtxPrimZ()                   const {return v1Z;}
@@ -103,10 +115,16 @@ public:
   void clear();
   void setPrimary(int primary, int id, double energy, double eta, double phi);
   void setEdep(double simtot, double sime, double simh);
-  void saveHit(unsigned int det, double eta, double phi, double e, double t);
+//  void saveHit(unsigned int det, double eta, double phi, double e, double t);
+//  void saveHit(uint32_t det, double eta, double phi, double e, double t,
+  void saveHit(unsigned int det, double eta, double phi, double e, double t,
+               double x, double y, double z, unsigned int lay);
+//               unsigned int lay);
 
   //Vertex associated methods
-  void setVtxPrim(int evNum, int type, double x, double y, double z, double u,
+//  void setVtxPrim(int evNum, int type, double x, double y, double z, double u,
+
+  void setVtxPrim(double ef, double et, double x, double y, double z, double u,
 		  double v, double w, double px, double py, double pz); 
   void setVtxSec(int id, int pdg, double px, double py, double pz, double ek); 
 
@@ -130,6 +148,7 @@ private:
 
   //Vertex members
   int          v1EvNum, v1Type, v1Nsec;
+  float        v1fEpi0, v1tEpi0;
   float        v1X, v1Y, v1Z, v1R, v1U, v1V, v1W;
   float        v1Px, v1Py, v1Pz;
   VtxVector    v1Sec;

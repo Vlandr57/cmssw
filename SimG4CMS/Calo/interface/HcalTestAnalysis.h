@@ -7,6 +7,7 @@
 
 #include "SimG4Core/Notification/interface/Observer.h"
 #include "SimG4Core/Watcher/interface/SimWatcher.h"
+#include "SimG4Core/Watcher/interface/SimProducer.h"
 
 #include "SimDataFormats/CaloHit/interface/CaloHit.h"
 #include "SimDataFormats/CaloTest/interface/HcalTestHistoClass.h"
@@ -14,11 +15,15 @@
 #include "SimG4CMS/Calo/interface/HcalTestHistoManager.h"
 #include "SimG4CMS/Calo/interface/HcalTestNumberingScheme.h"
 #include "Geometry/HcalCommonData/interface/HcalNumberingFromDDD.h"
+#include "SimDataFormats/HcalTestBeam/interface/PHcalTB06Info.h"
+#include "DataFormats/Math/interface/Point3D.h"
 
 #include <iostream>
 #include <memory>
 #include <vector>
 #include <string>
+#include <cmath>
+#include <map>
 
 
 class G4Step;
@@ -31,7 +36,8 @@ namespace CLHEP {
   class HepRandomEngine;
 }
 
-class HcalTestAnalysis : public SimWatcher,
+//class HcalTestAnalysis : public SimWatcher,
+class HcalTestAnalysis : public SimProducer,
 			 public Observer<const BeginOfJob *>, 
 			 public Observer<const BeginOfRun *>, 
 			 public Observer<const BeginOfEvent *>, 
@@ -41,6 +47,8 @@ class HcalTestAnalysis : public SimWatcher,
 public:
   HcalTestAnalysis(const edm::ParameterSet &p);
   virtual ~HcalTestAnalysis();
+
+   virtual void produce(edm::Event&, const edm::EventSetup&);
 
 private:
   // observer classes
@@ -57,6 +65,10 @@ private:
   void   qieAnalysis(CLHEP::HepRandomEngine*);
   void   layerAnalysis();
   double timeOfFlight(int det, int layer, double eta);
+  void fillEvent(PHcalTB06Info&);
+
+  void init();
+  void   clear();
 
 private:
 
@@ -77,15 +89,28 @@ private:
 
   // Hits for qie analysis
   std::vector<CaloHit>      caloHitCache; 
+  std::vector<CaloHit>      hcalHitCache; 
   std::vector<int>          group_, tower_;
   int                       nGroup, nTower;
+
+  std::map<int,math::XYZPoint>    caloMap;
+
+  bool                      pvFound;
+  bool                      firstInter, firstInel;
+  int                       evNum, nPrimary, particleType,  pvType ;
+  G4ThreeVector             pvPosition, pvMomentum, pvUVW;
+  double                    pInit, etaInit, phiInit;
+  double                    ePi0tot, ePi0fst;
   
   // to read from ParameterSet
   std::vector<std::string>  names;
   double                    eta0, phi0;
+  double                    eThresh;
   int                       centralTower;
+  char                      nameHBL[10];
 
   // some private members for ananlysis 
+  int                       nbhits;
   unsigned int              count;                  
   double                    edepEB, edepEE, edepHB, edepHE, edepHO;
   double                    edepl[20];

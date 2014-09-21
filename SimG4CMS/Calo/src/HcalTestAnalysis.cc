@@ -11,10 +11,15 @@
 #include "SimG4CMS/Calo/interface/CaloG4HitCollection.h"
 #include "DataFormats/Math/interface/Point3D.h"
 
+#include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/ESTransientHandle.h"
 #include "Geometry/Records/interface/IdealGeometryRecord.h"
 #include "DetectorDescription/Core/interface/DDCompactView.h"
+
+#include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticleFwd.h"
 
 #include "G4SDManager.hh"
 #include "G4Step.hh"
@@ -35,6 +40,7 @@ HcalTestAnalysis::HcalTestAnalysis(const edm::ParameterSet &p):
   edm::ParameterSet m_Anal = p.getParameter<edm::ParameterSet>("HcalTestAnalysis");
   eta0         = m_Anal.getParameter<double>("Eta0");
   phi0         = m_Anal.getParameter<double>("Phi0");
+  eThresh      = m_Anal.getParameter<double>("Thresh");
   int laygroup = m_Anal.getParameter<int>("LayerGrouping");
   centralTower = m_Anal.getParameter<int>("CentralTower");
   names        = m_Anal.getParameter<std::vector<std::string> >("Names");
@@ -43,6 +49,7 @@ HcalTestAnalysis::HcalTestAnalysis(const edm::ParameterSet &p):
   edm::LogInfo("HcalSim") << "HcalTestAnalysis:: Initialised as observer of "
 			  << "begin/end events and of G4step";
 
+  produces<PHcalTB06Info>();
   count  = 0;
   group_ = layerGrouping(laygroup);
   nGroup = 0;
@@ -57,6 +64,11 @@ HcalTestAnalysis::HcalTestAnalysis(const edm::ParameterSet &p):
 
   // qie
   myqie  = new HcalQie(p);
+
+// initilize necessary names
+//--------------------------
+
+  init();
 } 
    
 HcalTestAnalysis::~HcalTestAnalysis() {
@@ -145,6 +157,21 @@ std::vector<int> HcalTestAnalysis::towersToAdd(int centre, int nadd) {
     edm::LogInfo("HcalSim") << "HcalTestAnalysis: Tower[" << std::setw(3) << i 
 			    << "] " << temp[i] << " " << temp[nbuf+i];
   return temp;
+}
+
+// put PHcalTB06Info information in ouput file (V.Andreev)                                
+//========================================================
+void HcalTestAnalysis::produce(edm::Event& e, const edm::EventSetup&) {
+
+  std::auto_ptr<PHcalTB06Info> product(new PHcalTB06Info);
+  fillEvent(*product);
+  e.put(product);
+}
+
+void HcalTestAnalysis::init() {
+
+  evNum = 0;
+  clear();
 }
 
 //==================================================================== per JOB
@@ -242,25 +269,175 @@ void HcalTestAnalysis::update(const BeginOfEvent * evt) {
 
   int iev = (*evt)()->GetEventID();
   LogDebug("HcalSim") <<"HcalTestAnalysis: Begin of event = " << iev;
+
+  evNum = (*evt) ()->GetEventID ();
+  clear();
+  nbhits = 0;
 }
 
 //=================================================================== each STEP
 void HcalTestAnalysis::update(const G4Step * aStep) {
 
   if (aStep != NULL) {
+
+// Get Step properties
+//--------------------
+    G4ThreeVector thePreStepPoint  = aStep->GetPreStepPoint()->GetPosition();
+    G4ThreeVector thePostStepPoint;
+
+// Get Tracks properties
+//----------------------
+    G4Track*      aTrack   = aStep->GetTrack();
+    int           trackID  = aTrack->GetTrackID();
+    int           parentID = aTrack->GetParentID();
+    G4ThreeVector position = aTrack->GetPosition();
+    G4ThreeVector momentum = aTrack->GetMomentum();
+    G4String      partType = aTrack->GetDefinition()->GetParticleType();
     G4VPhysicalVolume* curPV  = aStep->GetPreStepPoint()->GetPhysicalVolume();
+
+    G4String thePostPVname = "NoName";
+    G4StepPoint * thePostPoint = aStep->GetPostStepPoint();
+    if (thePostPoint) {
+       thePostStepPoint = thePostPoint->GetPosition();
+       G4VPhysicalVolume * thePostPV = thePostPoint->GetPhysicalVolume ();
+       if (thePostPV) thePostPVname = thePostPV->GetName ();
+    }
+
+/*
+      std::cout << " preStep Volume  = " << curPV->GetName()
+                << " xx = " << position.x() << std::endl;
+
+      std::cout << " postStep Volume = " << thePostPVname
+                << " xx = " << position.x() << std::endl;
+*/
+
+// save hit if deposited energy on this step > eThresh
+//-----------------------------------------------------
+    if ( aStep->GetTotalEnergyDeposit()>eThresh) {
+
+// only ECAL and HCAL calorimeter volume are taken into accout
+//-------------------------------------------------------------
+
+      G4String name01 = curPV->GetName();
+      G4String name02, name03;
+      name02.assign(name01,0,3);
+      name03.assign(name01,0,2);
+     
+      if ( name02=="HBS" || name02=="HBL" || name02=="HES" || name02=="HEP" ||
+           name02=="HEB" || name02=="EBR" || name02=="EFR" || name03=="SF"  ||
+           name03=="EE"  || name02=="EIL" || name02=="ESP" || name02=="EHA" ||
+           name02=="EWA" || name02=="ECL" || name02=="EWR" || name02=="ESG" ||
+           name02=="ECA" || name02=="EBC" || name02=="EMB" || name02=="EBB" ||
+           name02=="EBP" || name02=="EFA" ) {
+
+        double time     = 0.0;
+        if (name02 == "HBS") time = 1.0;
+        if (name02 == "HBL") time = 2.0;
+
+        if (name02 == "HES") time = 3.0;
+        if (name02 == "HEP") time = 4.0;
+        if (name02 == "HEB") time = 4.0;
+
+        if (name02 == "EFR") time = 5.0;
+        if (name03 == "SF" ) time = 6.0;
+        if (name03 == "EE" ) time = 6.0;
+
+        if (name02 == "EBR") time = 7.0;
+        if (name02 == "EIL") time = 8.0;
+        if (name02 == "ESP") time = 8.0;
+        if (name02 == "EHA") time = 8.0;
+        if (name02 == "EWA") time = 8.0;
+        if (name02 == "ECL") time = 8.0;
+        if (name02 == "EWR") time = 8.0;
+        if (name02 == "ESG") time = 8.0;
+        if (name02 == "ECA") time = 8.0;
+
+        if (name02 == "EBA") time = 8.0;
+        if (name02 == "EBB") time = 8.0;
+        if (name02 == "EBP") time = 8.0;
+        if (name02 == "EMB") time = 8.0;
+        if (name02 == "EFA") time = 8.0;
+
+//        std::cout << " preStep Volume  = " << curPV->GetName()
+//                  << " xx = " << position.x() << std::endl;
+
+        math::XYZPoint pos  = math::XYZPoint(position.x(),position.y(),position.z());
+        double theta    = pos.theta();
+        double   eta    = -log(tan(theta/2.));
+        double   phi    = pos.phi();
+        double     e    = aStep->GetTotalEnergyDeposit();
+//        double     e    = aStep->GetTotalEnergyDeposit()/MeV;
+
+        HcalNumberingFromDDD::HcalID id = numberingFromDDD->unitID(eta,phi,1,1);
+        uint32_t unitID = org->getUnitID(id);
+        int subdet, zside, layer, ieta, iphi, lay;
+        org->unpackHcalIndex(unitID,subdet,zside,layer,ieta,iphi,lay);
+        subdet = 10;
+        layer  = 0;
+        unitID = org->packHcalIndex(subdet,zside,layer,ieta,iphi,lay);
+        CaloHit hit(subdet,lay,e,eta,phi,time,unitID);
+        caloHitCache.push_back(hit);
+        caloMap.insert(std::pair<int,math::XYZPoint>(nbhits,pos));
+        nbhits++;
+
+// Fist interaction or deposited energy in HCAL
+//---------------------------------------------      
+        if ( !firstInter ) {
+//          pvPosition = thePostStepPoint;
+          pvPosition = thePreStepPoint;
+          firstInter = true;
+/*
+//          std::cout << " Find Calo volume = " << thePostPVname 
+          std::cout << " Find Calo volume = " << name01 
+                    << " Deposited energy = " << e
+                    << " e[keV] = " << aStep->GetTotalEnergyDeposit()/keV
+                    << " e[MeV] = " << aStep->GetTotalEnergyDeposit()/MeV
+                    << " e[GeV] = " << aStep->GetTotalEnergyDeposit()/GeV
+                    << std::endl;
+          std::cout << " Calorimeter starting point xyz = " << pvPosition << std::endl;
+*/
+        }
+
+// First inelastic interaction in HCAL
+//------------------------------------
+        G4String pross = aStep->GetPostStepPoint()->GetProcessDefinedStep()->GetProcessName();
+        if ( (pross=="PionMinusInelastic" || pross=="ProtonInelastic") &&
+                                                           !firstInel) {
+           pvUVW = thePreStepPoint;
+           firstInel = true;
+/*
+           std::cout << " Find Inelastic process = " 
+                     << pross << std::endl;
+           std::cout << " Nuclear interaction point xyz = " << pvUVW << std::endl;
+*/
+        }
+
+      }  // end of Ecal and Hcal volumes selection
+
+    } // end of eThresh condition
+
+// pi0 total energy and pi0 energy in the first interaction 
+//----------------------------------------------------------
+    if ( trackID !=1 && (aTrack->GetCurrentStepNumber()==1) ) {
+       if ( aTrack->GetDefinition()->GetParticleName() == "pi0") {
+          ePi0tot += aTrack->GetKineticEnergy()/GeV;
+          if ( parentID==1) ePi0fst += aTrack->GetKineticEnergy()/GeV;
+      }
+    } 
+
+//    G4VPhysicalVolume* curPV  = aStep->GetPreStepPoint()->GetPhysicalVolume();
     G4String name = curPV->GetName();
     name.assign(name,0,3);
     double edeposit = aStep->GetTotalEnergyDeposit();
     int    layer=-1;
     if (name == "EBR") {
-      edepEB += edeposit;
+//      edepEB += edeposit;
     } else if (name == "EFR") {
-      edepEE += edeposit;
+//      edepEE += edeposit;
     } else if (name == "HBS") {
       layer = (curPV->GetCopyNo()/10)%100;
       if (layer >= 0 && layer < 17) {
-	edepHB += edeposit;
+//	edepHB += edeposit;
       } else {
 	edm::LogWarning("HcalSim") << "HcalTestAnalysis::Error in HB "
 				   << curPV->GetName() << curPV->GetCopyNo();
@@ -269,7 +446,7 @@ void HcalTestAnalysis::update(const G4Step * aStep) {
     } else if (name == "HES") {
       layer = (curPV->GetCopyNo()/10)%100;
       if (layer >= 0 && layer < 19) {
-	edepHE += edeposit;
+//	edepHE += edeposit;
       } else {
 	edm::LogWarning("HcalSim") << "HcalTestAnalysis::Error in HE " 
 				   << curPV->GetName() << curPV->GetCopyNo();
@@ -339,14 +516,69 @@ void HcalTestAnalysis::update(const EndOfEvent * evt) {
 //---------------------------------------------------
 void HcalTestAnalysis::fill(const EndOfEvent * evt) {
 
-  LogDebug("HcalSim") << "HcalTestAnalysis: Fill event " 
-		      << (*evt)()->GetEventID();
+// Find primary vertex and particle  (V.Andreev)
+//===============================================
+
+  int trackID = 0;
+  G4PrimaryParticle* thePrim=0;
+  int nvertex = (*evt)()->GetNumberOfPrimaryVertex();
+
+  if (nvertex !=0) pvFound = true;
+  pvType = 1;
+
+  for (int i = 0 ; i<nvertex; i++) {
+    G4PrimaryVertex* avertex = (*evt)()->GetPrimaryVertex(i);
+    if (avertex == 0) {
+       std::cout << " HcalTestAnalysis::EndOfEvent ERR: pointer "
+                 << "to vertex = 0 for event " << evNum << std::endl;
+    } else {
+//      std::cout << " HcalTestAnalysis::Vertex number :" << i << " "
+//                << avertex->GetPosition() << std::endl;
+
+      int npart = avertex->GetNumberOfParticle();
+      nPrimary = npart;
+//      pvPosition = avertex->GetPosition();
+      if (npart == 0)
+         std::cout << " HcalTestAnalysis::End Of Event ERR: "
+                   << "no primary!" << std::endl;
+      if (thePrim==0) thePrim=avertex->GetPrimary(trackID);
+    }
+  }
+
+  if (thePrim != 0) {
+    double px = thePrim->GetPx()/GeV;
+    double py = thePrim->GetPy()/GeV;
+    double pz = thePrim->GetPz()/GeV;
+    pvMomentum = G4ThreeVector(px,py,pz);
+    double p  = std::sqrt(pow(px,2.)+pow(py,2.)+pow(pz,2.));
+    pInit     = p;
+    if (p==0) 
+      std::cout << " HcalTestAnalysis:: EndOfEvent ERR: "
+                << "primary has p=0 " << std::endl;
+    else {
+      double costheta = pz/p;
+      double theta = acos(std::min(std::max(costheta,-1.),1.));
+      etaInit = -log(tan(theta/2));
+      if (px != 0 || py != 0) phiInit = atan2(py,px);  
+    }
+    particleType = thePrim->GetPDGcode();
+//    std::cout << " HcalTestAnalysis Primary particleType = " 
+//              << particleType << " p = " << pInit << " eta = " << etaInit
+//              << " phiInit = " << phiInit << std::endl;
+//    std::cout << " px = " << px << " py = " << py
+//              << " pz = " << pz << std::endl;
+  } else 
+    std::cout << " HcalTestAnalysis::EndOfEvent ERR: could "
+              << "not find primary" << std::endl;
+
+    
   
   // access to the G4 hit collections 
   G4HCofThisEvent* allHC = (*evt)()->GetHCofThisEvent();
   
   int nhc = 0, neb = 0, nef = 0, j = 0;    
-  caloHitCache.erase (caloHitCache.begin(), caloHitCache.end());
+//  caloHitCache.erase (caloHitCache.begin(), caloHitCache.end());
+//  caloMap.erase (caloMap.begin(), caloMap.end());
  
   // Hcal
   int HCHCid = G4SDManager::GetSDMpointer()->GetCollectionID(names[0]);
@@ -371,8 +603,9 @@ void HcalTestAnalysis::fill(const EndOfEvent * evt) {
       org->unpackHcalIndex(unitID,subdet,zside,layer,etaIndex,phiIndex,lay);
       double jitter   = time-timeOfFlight(subdet,lay,eta);
       if (jitter<0) jitter = 0;
-      CaloHit hit(subdet,lay,e,eta,phi,jitter,unitID);
-      caloHitCache.push_back(hit);
+//      CaloHit hit(subdet,lay,e,eta,phi,jitter,unitID);
+//      caloHitCache.push_back(hit);
+//      caloMap.insert(std::pair<int,math::XYZPoint>(nhc,pos));
       nhc++;
 
       std::string det =  "HB";
@@ -421,8 +654,8 @@ void HcalTestAnalysis::fill(const EndOfEvent * evt) {
       subdet = 10;
       layer  = 0;
       unitID = org->packHcalIndex(subdet,zside,layer,ieta,iphi,lay);
-      CaloHit hit(subdet,lay,e,eta,phi,time,unitID);
-      caloHitCache.push_back(hit);
+//      CaloHit hit(subdet,lay,e,eta,phi,time,unitID);
+//      caloHitCache.push_back(hit);
       neb++;
       LogDebug("HcalSim") << "HcalTest: " << det << "  layer " << std::setw(2) 
 			  << layer << " time " << std::setw(6) << time 
@@ -459,8 +692,8 @@ void HcalTestAnalysis::fill(const EndOfEvent * evt) {
       subdet = 11;
       layer  = 0;
       unitID = org->packHcalIndex(subdet,zside,layer,ieta,iphi,lay);
-      CaloHit hit(subdet,lay,e,eta,phi,time,unitID);
-      caloHitCache.push_back(hit);
+//      CaloHit hit(subdet,lay,e,eta,phi,time,unitID);
+//      caloHitCache.push_back(hit);
       nef++;
       LogDebug("HcalSim") << "HcalTest: " << det << "  layer " << std::setw(2)
 			  << layer << " time " << std::setw(6) << time 
@@ -593,6 +826,41 @@ void HcalTestAnalysis::qieAnalysis(CLHEP::HepRandomEngine* engine) {
 }
 
 //---------------------------------------------------
+void HcalTestAnalysis::fillEvent (PHcalTB06Info& product) {
+
+// Primary Beam Information
+//--------------------------
+  product.setPrimary(nPrimary, particleType, pInit, etaInit, phiInit);
+
+// Vertex associated quantities
+//------------------------------
+
+//  if(pvFound) product.setVtxPrim(evNum, pvType, 
+  if(pvFound) product.setVtxPrim(ePi0fst, ePi0tot, 
+                                 pvPosition.x(), pvPosition.y(), pvPosition.z(), 
+                                 pvUVW.x(), pvUVW.y(),  pvUVW.z(), 
+                                 pvMomentum.x(), pvMomentum.y(), pvMomentum.z());
+
+  std::cout << " caloHitCache size = " << caloHitCache.size() << std::endl;
+  std::cout << " caloMap size = " << caloMap.size() << std::endl;
+  std::cout << " ePi0fst = " << ePi0fst << " ePi0tot = " << ePi0tot << std::endl;
+
+  std::map<int,math::XYZPoint>::iterator cellitr;
+  for (unsigned int i=0; i<caloHitCache.size(); i++) {
+    cellitr = caloMap.find(i);
+    if(cellitr==caloMap.end()) continue;
+    double xx = cellitr->second.x();
+    double yy = cellitr->second.y();
+    double zz = cellitr->second.z();
+    product.saveHit(caloHitCache[i].id(),  caloHitCache[i].eta(),   
+                    caloHitCache[i].phi(), caloHitCache[i].e(),
+                    caloHitCache[i].t(), xx, yy, zz,   
+                    caloHitCache[i].layer());
+  }
+
+}
+
+//---------------------------------------------------
 void HcalTestAnalysis::layerAnalysis(){
 
   int i = 0;
@@ -636,3 +904,22 @@ double HcalTestAnalysis::timeOfFlight(int det, int layer, double eta) {
 		      << dist;
   return tmp;
 }
+
+void HcalTestAnalysis::clear() {
+
+  pvFound = false;
+  firstInter = false;
+  firstInel  = false;
+  pvType  =-2;
+  pvPosition = G4ThreeVector();
+  pvUVW      = G4ThreeVector();
+  pvMomentum = G4ThreeVector();
+
+  caloHitCache.erase(caloHitCache.begin(), caloHitCache.end()); 
+  caloMap.clear();
+  nPrimary = particleType = 0;
+  pInit = etaInit = phiInit = 0.0;
+  ePi0fst = ePi0tot = 0.0;
+
+}
+

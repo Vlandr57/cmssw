@@ -65,6 +65,7 @@ void PHcalTB06Info::clear() {
   hits.clear();
 
   v1EvNum = v1Type = v1Nsec = 0;
+  v1fEpi0 = v1tEpi0 = 0.0;
   v1X = v1Y = v1Z = v1U = v1V = v1W = 0;
   v1Px = v1Py = v1Pz = 0;
   v1Sec.clear();
@@ -93,8 +94,9 @@ void PHcalTB06Info::setEdep(double simtot, double sime, double simh) {
 			  << " simEEc " << simEEc << " simEHc " << simEHc;
 }
 
-void PHcalTB06Info::saveHit(unsigned int id, double eta, double phi, double e, 
-			    double t) {
+void PHcalTB06Info::saveHit(uint32_t id, double eta, double phi, double e, 
+			    double t, double x, double y, double z,
+                            unsigned int lay) {
 
   int nh = hit;
   hit++;
@@ -104,6 +106,10 @@ void PHcalTB06Info::saveHit(unsigned int id, double eta, double phi, double e,
   newHit.phi = (float)(phi);
   newHit.e   = (float)(e);
   newHit.t   = (float)(t);
+  newHit.x   = (float)(x);
+  newHit.y   = (float)(y);
+  newHit.z   = (float)(z);
+  newHit.lay = lay;
   hits.push_back(newHit);
   LogDebug("SimHCalData") << "PHcalTB06Info::saveHit " << hit << " ID 0x" 
 			  << std::hex << hits[nh].id << std::dec << " Eta " 
@@ -111,12 +117,15 @@ void PHcalTB06Info::saveHit(unsigned int id, double eta, double phi, double e,
 			  << " E " << hits[nh].e << " t " << hits[nh].t;
 }
 
-void PHcalTB06Info::setVtxPrim(int evNum, int type, double x, double y, 
+//void PHcalTB06Info::setVtxPrim(int evNum, int type, double x, double y, 
+void PHcalTB06Info::setVtxPrim(double ef, double et, double x, double y, 
 			       double z, double u, double v, double w, 
 			       double px, double py, double pz) {
 
-  v1EvNum = evNum;
-  v1Type  = type;
+//  v1EvNum = evNum;
+//  v1Type  = type;
+  v1fEpi0 = (float)(ef);
+  v1tEpi0 = (float)(et);
   double r= sqrt(x*x+y*y+z*z);
   v1X     = (float)(x);
   v1Y     = (float)(y);
