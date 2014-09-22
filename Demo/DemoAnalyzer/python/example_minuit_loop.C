@@ -81,7 +81,7 @@ gROOT->Reset();
    double z_depth;
    double e_dep;
    int nevShow = 0;
-   int maxShow = 100; // display fit results only for the first maxShow events
+   int maxShow = 20; // display fit results only for the first maxShow events
 
    TH1D *h1 = new TH1D("h1","alpha " , 100, 0.0, 12.0);
    TH1D *h2 = new TH1D("h2","beta "  ,  50, 0.0,  1.0);
@@ -101,8 +101,8 @@ gROOT->Reset();
 // Start loop over events
 //========================
 
-   for (int iev=0; iev<n; ++iev) {
-//   for (int iev=0; iev<20; ++iev) {
+//   for (int iev=0; iev<n; ++iev) {
+   for (int iev=0; iev<20; ++iev) {
 
      t1->GetEntry(iev);
      t2->GetEntry(iev);
