@@ -493,12 +493,13 @@ void HcalTB06Analysis::finalAnalysis() {
 void HcalTB06Analysis::fillEvent (PHcalTB06Info& product) {
 
   //Beam Information
-  product.setPrimary(nPrimary, particleType, pInit, etaInit, phiInit);
+//  product.setPrimary(nPrimary, particleType, pInit, etaInit, phiInit);
 
   // Total Energy
-  product.setEdep(etots, eecals, ehcals);
+//  product.setEdep(etots, eecals, ehcals);
 
   //Energy deposits in the crystals and towers
+/*
   for (unsigned int i=0; i<hcalHitCache.size(); i++) 
     product.saveHit(hcalHitCache[i].id(), hcalHitCache[i].eta(),
 		    hcalHitCache[i].phi(), hcalHitCache[i].e(),
@@ -516,6 +517,7 @@ void HcalTB06Analysis::fillEvent (PHcalTB06Info& product) {
     product.setVtxSec(secTrackID[i], secPartID[i], secMomentum[i].x(),
 		      secMomentum[i].y(), secMomentum[i].z(), secEkin[i]);
   }
+*/
 }
 
 void HcalTB06Analysis::clear() {
