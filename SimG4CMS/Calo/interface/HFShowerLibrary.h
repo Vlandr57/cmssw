@@ -10,6 +10,7 @@
 #include "SimG4CMS/Calo/interface/HFFibre.h"
 #include "SimDataFormats/CaloHit/interface/HFShowerPhoton.h"
 #include "DetectorDescription/Core/interface/DDsvalues.h"
+#include "FastSimulation/ShowerDevelopment/interface/FastHFShowerLibrary.h"
 
 #include "G4ParticleTable.hh"
 #include "G4ThreeVector.hh"
@@ -26,7 +27,8 @@ class DDCompactView;
 class G4Step;
 
 class HFShowerLibrary {
-  
+
+      friend class FastHFShowerLibrary;  
 public:
   
   //Constructor and Destructor
@@ -46,6 +48,8 @@ public:
   void                initRun(G4ParticleTable * theParticleTable);
   std::vector<Hit>    getHits(G4Step * aStep, bool &ok, double weight, 
 			      bool onlyLong=false);
+
+  HFFibre * getFibre() const {return fibre;}
 
 protected:
 
